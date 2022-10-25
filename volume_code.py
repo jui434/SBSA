@@ -3,8 +3,7 @@
 ####
 #Volume calculation project
 #Code requires that the images are named correctly and identically exept for sequence information, which MUST BE ACCURATE
-#Code by Dr. Shaan Bhambra (image cleanup and contour calculation) and Julie Midroni (bubble contour selection, forward propagation and user interface)
-#in other words, please don't ask julie anything about image cleanup/deconvolution because she has absolutely no idea how shaan made it work. props to him.
+
 
 #####
 #IMPORTS
@@ -13,12 +12,18 @@ import numpy as np
 import cv2 
 import os
 import sys
+import random
 import matplotlib.pyplot as plt
 import shapely.geometry as geom
 import csv
 import tkinter as tk
 from tkinter import simpledialog, messagebox
 from tkinter import font
+from skimage import color, io, img_as_float
+from skimage.segmentation import chan_vese
+from skimage.io import imread
+from skimage.color import rgb2gray
+from pathlib import Path
 
 #####
 #INITIAL PARAMETERS
@@ -49,7 +54,7 @@ root.withdraw()
 path = simpledialog.askstring(title="Bubble Volume Calculation", prompt='PLEASE ENSURE THE FOLLOWING FOR YOUR IMAGES:\n1) Your images for ONE eye and ONLY one eye are in one folder, with nothing else in it, except potentially this .py file\n2) Your images for ONE eye and ONLY one eye are named sequentially and otherwise identically; increasing or decreasing depth does not matter.\n3) Your images are all oriented the same way.\n\nIf your images are NOT in the same folder as this .py file, please provide the path, from home, to the folder containing your images. If your images are in this folder, enter 0\n\nOnce you have done so, you may begin by selecting your bubble of choice, or pressing SPACE If no bubble can be seen.')
 
 if path == '0':
-    path = "/home/jui434/Documents/Muni Lab/Volume/data"
+    path = "/home/jui434/Documents/Muni Lab/Volume/data2"
     #path = os.path.dirname(os.path.abspath(__file__))
 
 #####
@@ -64,9 +69,14 @@ for subdir, dirs, files in os.walk(path): #from shaan's code; get path for every
         if filepath.endswith(".tif") and not "llips" in filepath: #get only the scans (filetype .tif)
             arr.append(filepath)
 
-#sort pictures in ascending order
-arr = np.sort(arr)
-arr = arr.tolist()
+
+#sort pictures in ascending order if they are not properly ordered
+def myFunc(e):
+  return len(e)
+
+# use .sort() on the list and sort by the len function we created above
+arr.sort()
+arr.sort(key=myFunc)
 
 #define click event
 bubble_loc = [] #store location of first bubble
@@ -105,6 +115,8 @@ with open(path+'/areas.csv', 'w+') as f:
     writer = csv.writer(f)
     writer.writerow(header)
 
+a = 0
+
 #we will be deconvoluting or otherwise cleaning the images as we go to improve contour selection
 for i in range(start, len(arr)): #iterate through all scans from SELECTED To end
     #from shaan's code for pre-contour recognition thresholding
@@ -114,14 +126,22 @@ for i in range(start, len(arr)): #iterate through all scans from SELECTED To end
     img = cv2.fastNlMeansDenoising(img,img,20,5,21)
     img = cv2.bitwise_not(img)
     blur = cv2.GaussianBlur(img,(5,5),0)
-    ret3,th3 = cv2.threshold(blur,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+    blur = cv2.add(blur, blur)
+    #cv2.imshow('blur', blur)
+    #cv2.waitKey()
+    if a <= 30:
+        ret3,th3 = cv2.threshold(blur,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+        contours, hierarchy = cv2.findContours(th3, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
+        
+    else:
+        scikittest = img_as_float(blur)
+        cv = chan_vese(scikittest, mu=0.07, lambda1=1, lambda2=1.00, tol=1e-5,max_num_iter=50, dt=0.8, init_level_set="checkerboard",extended_output=True)
+        cv = cv[0].astype(np.uint8)*255
+        #cv2.imshow('cv1', cv)
+        #cv2.waitKey()
+        contours, hierarchy = cv2.findContours(cv, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
     
-    #contour detection, from shaan's contour detection code
-    #also, for the record, I hate openCV with a passion right now
-    #like, why on earth sdoes imshow only work SOMETIMES
-    #AND WHY IS THIS LIBRARY SO BROKEN FOR LINUX I SWEAR
-    contours, hierarchy = cv2.findContours(th3, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
-   
+
     #ask if they want to review results or just get the volume
     if i == start:
         root = tk.Tk()
@@ -136,13 +156,14 @@ for i in range(start, len(arr)): #iterate through all scans from SELECTED To end
         #select bubble contour
         #for FIRST image, this is based on click (bubble_loc)
         coord = bubble_loc[0]
+        print(coord)
         
         #find the contour of SMALLEST AREA that contains the coord
         asmallest = 999999999 #placeholder
         contour_bubble = None #placeholder
         contour_shapely = None #placeholder
         for cnt in contours:
-            cnt = cv2.convexHull(cnt)
+            cnt = cnt
             if len(cnt) >= 3: #lines cannot become polygons
                 a = cv2.contourArea(cnt)
                 #convert to shapely object
@@ -160,9 +181,14 @@ for i in range(start, len(arr)): #iterate through all scans from SELECTED To end
                         asmallest = a
                         contour_bubble = cnt
                         contour_shapely = polygon
+                        M = cv2.moments(cnt)
+                        cx = int(M['m10']/M['m00'])
+                        cy = int(M['m01']/M['m00'])
+                        coord = (cx, cy)
 
         #store chosen contour
         areas.append(asmallest)
+        a = asmallest
         bubbles.append(contour_bubble)  
         bubbles_shapely.append(contour_shapely)
         with open(path+'/areas.csv', 'a') as f: #save results
@@ -179,10 +205,11 @@ for i in range(start, len(arr)): #iterate through all scans from SELECTED To end
         
         #we want the search to end if there is no bubble
         bubble_here = False
+        print(coord)
         
         #this time, we check for overlap with previous contour, and containing point, and smallest 		area
         for cnt in contours:
-            cnt = cv2.convexHull(cnt)
+            cnt = cnt
             if len(cnt) >= 3: #lines cannot become polygons
                 a = cv2.contourArea(cnt)
                 #convert to shapely object
@@ -196,17 +223,22 @@ for i in range(start, len(arr)): #iterate through all scans from SELECTED To end
                     #see if overlap with previous contour
                     if prev.intersects(polygon) != None:
                         #see if area is smallest
-                        if a < asmallest:            
+                        if a < asmallest:
                             asmallest = a
                             contour_bubble = cnt
                             contour_shapely = polygon
+                            M = cv2.moments(cnt)
+                            cx = int(M['m10']/M['m00'])
+                            cy = int(M['m01']/M['m00'])
+                            coord = (cx, cy)                            
                             bubble_here = True
         
         #break out of the loop if the chosen contour is stupidly large ie: not a bubble                    
         if asmallest >= 10*max(areas):
             bubble_here = False
                
-        if bubble_here:           
+        if bubble_here:   
+            a = asmallest        
             areas.append(asmallest)  
             bubbles.append(contour_bubble)
             bubbles_shapely.append(contour_shapely)
@@ -226,6 +258,7 @@ for i in range(start, len(arr)): #iterate through all scans from SELECTED To end
         plt.savefig(name)
         plt.show()
     else: #regardless, draw and save the image
+        plt.clf()
         first, second = contour_shapely.exterior.xy
         plt.plot(first, second, zorder = 1000000, c = 'g', linewidth = 1)
         plt.imshow(scan, zorder = 1)

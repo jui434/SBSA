@@ -1,7 +1,7 @@
 # bleb
 Volume Calculation for Eye Blebs
 
-Julie Midroni, Jack Longwell, Dr. Shaan Bhambra
+Julie Midroni, Jack Longwell, Dr. Shaan Bhambra, Dr. Rajeev Muni
 
 Segmenting subretinal fluid using OCT images, OpenCV, and scikit-learn
 

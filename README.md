@@ -1,9 +1,9 @@
-# bleb
-Volume Calculation for Eye Blebs
+# SBSA
+Segmentation and volume calculation for subretinal fluid using OCT images, OpenCV, and scikit-learn
 
 Julie Midroni, Jack Longwell, Dr. Shaan Bhambra, Dr. Rajeev Muni
 
-Segmenting subretinal fluid using OCT images, OpenCV, and scikit-learn
+Sample segmentation shown below. 
 
 
 ![alt text](https://github.com/jui434/SBSA/blob/main/movie.gif "raw and annotated scans")

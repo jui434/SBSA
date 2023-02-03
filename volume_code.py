@@ -156,7 +156,6 @@ for i in range(start, len(arr)): #iterate through all scans from SELECTED To end
         #select bubble contour
         #for FIRST image, this is based on click (bubble_loc)
         coord = bubble_loc[0]
-        print(coord)
         
         #find the contour of SMALLEST AREA that contains the coord
         asmallest = 999999999 #placeholder
@@ -205,7 +204,6 @@ for i in range(start, len(arr)): #iterate through all scans from SELECTED To end
         
         #we want the search to end if there is no bubble
         bubble_here = False
-        print(coord)
         
         #this time, we check for overlap with previous contour, and containing point, and smallest 		area
         for cnt in contours:

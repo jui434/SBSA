@@ -1,4 +1,6 @@
 # SBSA
+PLEASE NOTE - This code is now deparacated.
+
 Segmentation and volume calculation for subretinal fluid using OCT images, OpenCV, and scikit-learn
 
 Presented at the 11th VBS Annual Meeting
